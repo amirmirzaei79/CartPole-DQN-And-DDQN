@@ -11,14 +11,14 @@ model = keras.models.Sequential()
 model.add(keras.layers.Dense(32, activation='sigmoid', input_dim=env.observation_space.shape[0]))
 model.add(keras.layers.Dense(32, activation='sigmoid'))
 model.add(keras.layers.Dense(env.action_space.n, activation='linear'))
-model.compile(loss='mean_squared_error', optimizer=keras.optimizers.Adam(0.001), metrics=['mae']) # 0.001 is learning rate of Adam
+model.compile(loss='mean_squared_error', optimizer=keras.optimizers.Adam(lr=0.001), metrics=['mae']) # 0.001 is learning rate of Adam
 
 # deep Q learning init
-gamma = 0.9
+gamma = 0.95
 epsilon = 1.0
 epsilonMin = 0.01
 epsilonDecay = 0.95
-episodeLimit = 5000
+episodeLimit = 100
 
 # deep Q
 for episode in range(episodeLimit):
@@ -46,19 +46,16 @@ for episode in range(episodeLimit):
     if epsilon > epsilonMin:
         epsilon *= epsilonDecay
 
-model.save_weights("weights.h5")
-
 # Play game
 print("\nPlaying Game...")
 time.sleep(1)
 
-s = env.reset()
+currentState = env.reset()
 done = False
 while not done:
     env.render()
-    a = np.argmax(model.predict(np.array([s])))
-    newS, r, done, _ = env.step(a)
-    s = newS
+    a = np.argmax(model.predict(np.array([currentState])))
+    newStateArray, reward, done, info = env.step(a)
     time.sleep(0.01)
 # env.reset()
 # env.render()
