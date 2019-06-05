@@ -17,10 +17,11 @@ model.compile(loss='mean_squared_error', optimizer=keras.optimizers.Adam(lr=0.00
 gamma = 0.95
 epsilon = 1.0
 epsilonMin = 0.01
-epsilonDecay = 0.75
-episodeLimit = 200
-batch_size = 64
-episode_time_limit = 500
+epsilonDecay = 0.95
+episodeLimit = 50000
+batch_size = 1024
+episode_time_limit = 1000
+memory_limit = 1000000
 
 memory = []
 
@@ -57,6 +58,9 @@ for episode in range(episodeLimit):
     if epsilon > epsilonMin:
         epsilon *= epsilonDecay
 
+    if len(memory) > memory_limit:
+        del memory[0:5000]
+
     if len(memory) > batch_size:
         mini_batch = random.sample(memory, batch_size)
 
@@ -69,6 +73,10 @@ for episode in range(episodeLimit):
             targetLabel = model.predict(currentState)[0]
             targetLabel[action] = target
             model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
+
+model.save('cartpole.h5')
+del model
+model = keras.models.load_model('cartpole.h5')
 
 # Play game
 print("\nPlaying Game...")
