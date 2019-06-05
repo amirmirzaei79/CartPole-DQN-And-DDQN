@@ -20,7 +20,6 @@ epsilonMin = 0.01
 epsilonDecay = 0.95
 episodeLimit = 5000
 batch_size = 256
-episode_time_limit = 1500
 memory_limit = 100000
 
 memory = []
