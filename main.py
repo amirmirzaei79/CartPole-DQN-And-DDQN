@@ -8,8 +8,8 @@ env = gym.make('CartPole-v1')
 
 # regression neural network to predict action rewards for each state - in this case each state has 2 actions
 model = keras.models.Sequential()
-model.add(keras.layers.Dense(32, activation='sigmoid', input_dim=env.observation_space.shape[0]))
-model.add(keras.layers.Dense(32, activation='sigmoid'))
+model.add(keras.layers.Dense(32, activation='relu', input_dim=env.observation_space.shape[0]))
+model.add(keras.layers.Dense(32, activation='relu'))
 model.add(keras.layers.Dense(env.action_space.n, activation='linear'))
 model.compile(loss='mean_squared_error', optimizer=keras.optimizers.Adam(lr=0.001), metrics=['mae']) # 0.001 is learning rate of Adam
 
@@ -17,9 +17,10 @@ model.compile(loss='mean_squared_error', optimizer=keras.optimizers.Adam(lr=0.00
 gamma = 0.95
 epsilon = 1.0
 epsilonMin = 0.01
-epsilonDecay = 0.95
-episodeLimit = 1000
-batch_size = 50
+epsilonDecay = 0.75
+episodeLimit = 200
+batch_size = 64
+episode_time_limit = 500
 
 memory = []
 
@@ -29,17 +30,21 @@ for episode in range(episodeLimit):
     currentState = np.array([currentStateArray])
     done = False
     T = 0
-    while not done and T < 500:
+    while not done and T < episode_time_limit:
         # env.render()
 
         if np.random.rand() <= epsilon:
-            action = np.random.randint(0, 1)
+            action = env.action_space.sample()
         else:
-            action = np.argmax(model.predict(currentState))
+            action = np.argmax(model.predict(currentState)[0])
 
         newStateArray, reward, done, info = env.step(action)
         newState = np.array([newStateArray])
-        target = reward + gamma * np.max(model.predict(newState))
+        if not done:
+            target = reward + gamma * np.max(model.predict(newState))
+        else:
+            target = reward
+
         targetLabel = model.predict(currentState)[0]
         targetLabel[action] = target
         model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
@@ -56,23 +61,32 @@ for episode in range(episodeLimit):
         mini_batch = random.sample(memory, batch_size)
 
         for currentState, action, reward, done, newState in mini_batch:
-            target = reward + gamma * np.max(model.predict(newState))
+            if not done:
+                target = reward + gamma * np.max(model.predict(newState))
+            else:
+                target = reward
+
             targetLabel = model.predict(currentState)[0]
             targetLabel[action] = target
             model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
-
 
 # Play game
 print("\nPlaying Game...")
 time.sleep(1)
 
-currentState = env.reset()
+currentStateArray = env.reset()
+currentState = np.array([currentStateArray])
 done = False
+T = 0
 while not done:
     env.render()
-    action = np.argmax(model.predict(np.array([currentState])))
-    newStateArray, reward, done, info = env.step(action)
+    action = np.argmax(model.predict(currentState)[0])
+    currentStateArray, reward, done, info = env.step(action)
+    currentState = np.array([currentStateArray])
     time.sleep(0.01)
+    T += 1
+
+print(T)
 # env.reset()
 # env.render()
 # observations, reward, done, info = env.step(env.action_space.sample())
