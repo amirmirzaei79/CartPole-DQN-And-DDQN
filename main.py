@@ -18,10 +18,10 @@ gamma = 0.95
 epsilon = 1.0
 epsilonMin = 0.01
 epsilonDecay = 0.95
-episodeLimit = 50000
-batch_size = 1024
-episode_time_limit = 1000
-memory_limit = 1000000
+episodeLimit = 5000
+batch_size = 256
+episode_time_limit = 1500
+memory_limit = 100000
 
 memory = []
 
@@ -30,8 +30,7 @@ for episode in range(episodeLimit):
     currentStateArray = env.reset()
     currentState = np.array([currentStateArray])
     done = False
-    T = 0
-    while not done and T < episode_time_limit:
+    while not done:
         # env.render()
 
         if np.random.rand() <= epsilon:
@@ -51,7 +50,6 @@ for episode in range(episodeLimit):
         model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
         memory.append([currentState, action, reward, done, newState])
         currentState = newState
-        T += 1
     else:
         print(episode)
 
@@ -75,8 +73,6 @@ for episode in range(episodeLimit):
             model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
 
 model.save('cartpole.h5')
-del model
-model = keras.models.load_model('cartpole.h5')
 
 # Play game
 print("\nPlaying Game...")
@@ -85,21 +81,9 @@ time.sleep(1)
 currentStateArray = env.reset()
 currentState = np.array([currentStateArray])
 done = False
-T = 0
 while not done:
     env.render()
     action = np.argmax(model.predict(currentState)[0])
     currentStateArray, reward, done, info = env.step(action)
     currentState = np.array([currentStateArray])
     time.sleep(0.01)
-    T += 1
-
-print(T)
-# env.reset()
-# env.render()
-# observations, reward, done, info = env.step(env.action_space.sample())
-# env.render()
-#
-# print(observations, '\n', Reward, done, '\n', info)
-#
-# time.sleep(1)
