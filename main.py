@@ -15,12 +15,12 @@ model.compile(loss='mean_squared_error', optimizer=keras.optimizers.Adam(lr=0.00
 
 # deep Q learning init
 gamma = 0.95
-epsilon = 1.0
+epsilon = 1.0 # Explore rate
 epsilonMin = 0.01
-epsilonDecay = 0.75
-episodeLimit = 200
-batch_size = 64
-episode_time_limit = 500
+epsilonDecay = 0.95
+episodeLimit = 5000
+batch_size = 256
+memory_limit = 100000
 
 memory = []
 
@@ -29,8 +29,7 @@ for episode in range(episodeLimit):
     currentStateArray = env.reset()
     currentState = np.array([currentStateArray])
     done = False
-    T = 0
-    while not done and T < episode_time_limit:
+    while not done:
         # env.render()
 
         if np.random.rand() <= epsilon:
@@ -50,12 +49,14 @@ for episode in range(episodeLimit):
         model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
         memory.append([currentState, action, reward, done, newState])
         currentState = newState
-        T += 1
     else:
         print(episode)
 
     if epsilon > epsilonMin:
         epsilon *= epsilonDecay
+
+    if len(memory) > memory_limit:
+        del memory[0:5000]
 
     if len(memory) > batch_size:
         mini_batch = random.sample(memory, batch_size)
@@ -77,21 +78,9 @@ time.sleep(1)
 currentStateArray = env.reset()
 currentState = np.array([currentStateArray])
 done = False
-T = 0
 while not done:
     env.render()
     action = np.argmax(model.predict(currentState)[0])
     currentStateArray, reward, done, info = env.step(action)
     currentState = np.array([currentStateArray])
     time.sleep(0.01)
-    T += 1
-
-print(T)
-# env.reset()
-# env.render()
-# observations, reward, done, info = env.step(env.action_space.sample())
-# env.render()
-#
-# print(observations, '\n', Reward, done, '\n', info)
-#
-# time.sleep(1)
