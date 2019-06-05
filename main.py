@@ -1,8 +1,8 @@
 import gym
 import time
-import tensorflow as tf
 import keras
 import numpy as np
+import random
 
 env = gym.make('CartPole-v1')
 
@@ -18,14 +18,18 @@ gamma = 0.95
 epsilon = 1.0
 epsilonMin = 0.01
 epsilonDecay = 0.95
-episodeLimit = 100
+episodeLimit = 1000
+batch_size = 50
+
+memory = []
 
 # deep Q
 for episode in range(episodeLimit):
     currentStateArray = env.reset()
     currentState = np.array([currentStateArray])
     done = False
-    while not done:
+    T = 0
+    while not done and T < 500:
         # env.render()
 
         if np.random.rand() <= epsilon:
@@ -39,12 +43,24 @@ for episode in range(episodeLimit):
         targetLabel = model.predict(currentState)[0]
         targetLabel[action] = target
         model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
+        memory.append([currentState, action, reward, done, newState])
         currentState = newState
+        T += 1
     else:
         print(episode)
 
     if epsilon > epsilonMin:
         epsilon *= epsilonDecay
+
+    if len(memory) > batch_size:
+        mini_batch = random.sample(memory, batch_size)
+
+        for currentState, action, reward, done, newState in mini_batch:
+            target = reward + gamma * np.max(model.predict(newState))
+            targetLabel = model.predict(currentState)[0]
+            targetLabel[action] = target
+            model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
+
 
 # Play game
 print("\nPlaying Game...")
@@ -54,8 +70,8 @@ currentState = env.reset()
 done = False
 while not done:
     env.render()
-    a = np.argmax(model.predict(np.array([currentState])))
-    newStateArray, reward, done, info = env.step(a)
+    action = np.argmax(model.predict(np.array([currentState])))
+    newStateArray, reward, done, info = env.step(action)
     time.sleep(0.01)
 # env.reset()
 # env.render()
