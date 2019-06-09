@@ -13,9 +13,13 @@ time.sleep(1)
 currentStateArray = env.reset()
 currentState = np.array([currentStateArray])
 done = False
+T = 0
 while not done:
     env.render()
     action = np.argmax(model.predict(currentState)[0])
     currentStateArray, reward, done, info = env.step(action)
     currentState = np.array([currentStateArray])
     time.sleep(0.01)
+    T += 1
+
+print(T)

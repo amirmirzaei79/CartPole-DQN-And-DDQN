@@ -8,8 +8,8 @@ env = gym.make('CartPole-v1')
 
 # regression neural network to predict action rewards for each state - in this case each state has 2 actions
 model = keras.models.Sequential()
-model.add(keras.layers.Dense(32, activation='relu', input_dim=env.observation_space.shape[0]))
-model.add(keras.layers.Dense(32, activation='relu'))
+model.add(keras.layers.Dense(50, activation='softmax', input_dim=env.observation_space.shape[0]))
+model.add(keras.layers.Dense(50, activation='softmax'))
 model.add(keras.layers.Dense(env.action_space.n, activation='linear'))
 model.compile(loss='mean_squared_error', optimizer=keras.optimizers.Adam(lr=0.001), metrics=['mae']) # 0.001 is learning rate of Adam
 
@@ -29,6 +29,7 @@ for episode in range(episodeLimit):
     currentStateArray = env.reset()
     currentState = np.array([currentStateArray])
     done = False
+    score = 0
     while not done:
         # env.render()
 
@@ -49,8 +50,9 @@ for episode in range(episodeLimit):
         model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
         memory.append([currentState, action, reward, done, newState])
         currentState = newState
+        score += 1
     else:
-        print(episode)
+        print(episode, '-> Score =', score)
 
     if epsilon > epsilonMin:
         epsilon *= epsilonDecay
