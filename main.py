@@ -8,19 +8,19 @@ env = gym.make('CartPole-v1')
 
 # regression neural network to predict action rewards for each state - in this case each state has 2 actions
 model = keras.models.Sequential()
-model.add(keras.layers.Dense(50, activation='softmax', input_dim=env.observation_space.shape[0]))
-model.add(keras.layers.Dense(50, activation='softmax'))
+model.add(keras.layers.Dense(32, activation='softmax', input_dim=env.observation_space.shape[0]))
+model.add(keras.layers.Dense(32, activation='softmax'))
 model.add(keras.layers.Dense(env.action_space.n, activation='linear'))
 model.compile(loss='mean_squared_error', optimizer=keras.optimizers.Adam(lr=0.001), metrics=['mae']) # 0.001 is learning rate of Adam
 
 # deep Q learning init
-gamma = 0.95
+gamma = 0.99
 epsilon = 1.0 # Explore rate
-epsilonMin = 0.01
-epsilonDecay = 0.95
+epsilonMin = 0.005
 episodeLimit = 4000
-batch_size = 256
-memory_limit = 100000
+exploreLimit = 0.95 * episodeLimit // 1
+batch_size = 250
+memory_limit = 25000
 
 memory = []
 
@@ -54,11 +54,13 @@ for episode in range(episodeLimit):
     else:
         print(episode, '-> Score =', score)
 
-    if epsilon > epsilonMin:
-        epsilon *= epsilonDecay
+    if episode < exploreLimit:
+        epsilon = (1 - epsilonMin) * (1 - (episode / exploreLimit)) + epsilonMin
+    else:
+        epsilon = 0
 
     if len(memory) > memory_limit:
-        del memory[0:5000]
+        del memory[0:memory_limit // 5]
 
     if len(memory) > batch_size:
         mini_batch = random.sample(memory, batch_size)
@@ -89,5 +91,6 @@ while not done:
     currentStateArray, reward, done, info = env.step(action)
     currentState = np.array([currentStateArray])
     time.sleep(0.01)
+    score += 1
 
 print(score)
