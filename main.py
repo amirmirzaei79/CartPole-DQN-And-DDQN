@@ -18,7 +18,7 @@ gamma = 0.95
 epsilon = 1.0
 epsilonMin = 0.01
 epsilonDecay = 0.95
-episodeLimit = 5000
+episodeLimit = 4000
 batch_size = 256
 memory_limit = 100000
 
@@ -82,9 +82,12 @@ time.sleep(1)
 currentStateArray = env.reset()
 currentState = np.array([currentStateArray])
 done = False
+score = 0
 while not done:
     env.render()
     action = np.argmax(model.predict(currentState)[0])
     currentStateArray, reward, done, info = env.step(action)
     currentState = np.array([currentStateArray])
     time.sleep(0.01)
+
+print(score)
