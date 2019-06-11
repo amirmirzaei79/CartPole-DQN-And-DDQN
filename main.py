@@ -26,8 +26,8 @@ memory = []
 
 # deep Q
 for episode in range(episodeLimit):
-    currentStateArray = env.reset()
-    currentState = np.array([currentStateArray])
+    currentState = env.reset()
+    currentStateArray = np.array([currentState])
     done = False
     score = 0
     while not done:
@@ -36,20 +36,20 @@ for episode in range(episodeLimit):
         if np.random.rand() <= epsilon:
             action = env.action_space.sample()
         else:
-            action = np.argmax(model.predict(currentState)[0])
+            action = np.argmax(model.predict(currentStateArray)[0])
 
-        newStateArray, reward, done, info = env.step(action)
-        newState = np.array([newStateArray])
+        newState, reward, done, info = env.step(action)
+        newStateArray = np.array([newState])
         if not done:
-            target = reward + gamma * np.max(model.predict(newState))
+            target = reward + gamma * np.max(model.predict(newStateArray))
         else:
             target = reward
 
-        targetLabel = model.predict(currentState)[0]
+        targetLabel = model.predict(currentStateArray)[0]
         targetLabel[action] = target
-        model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
-        memory.append([currentState, action, reward, done, newState])
-        currentState = newState
+        model.fit(currentStateArray, targetLabel.reshape(1, 2), epochs=1, verbose=0)
+        memory.append([currentStateArray, action, reward, done, newStateArray])
+        currentStateArray = newStateArray
         score += 1
     else:
         print(episode, '-> Score =', score)
@@ -65,15 +65,15 @@ for episode in range(episodeLimit):
     if len(memory) > batch_size:
         mini_batch = random.sample(memory, batch_size)
 
-        for currentState, action, reward, done, newState in mini_batch:
+        for currentStateArray, action, reward, done, newStateArray in mini_batch:
             if not done:
-                target = reward + gamma * np.max(model.predict(newState))
+                target = reward + gamma * np.max(model.predict(newStateArray))
             else:
                 target = reward
 
-            targetLabel = model.predict(currentState)[0]
+            targetLabel = model.predict(currentStateArray)[0]
             targetLabel[action] = target
-            model.fit(currentState, targetLabel.reshape(1, 2), epochs=1, verbose=0)
+            model.fit(currentStateArray, targetLabel.reshape(1, 2), epochs=1, verbose=0)
 
 model.save('cartpole.h5')
 
@@ -81,15 +81,15 @@ model.save('cartpole.h5')
 print("\nPlaying Game...")
 time.sleep(1)
 
-currentStateArray = env.reset()
-currentState = np.array([currentStateArray])
+currentState = env.reset()
+currentStateArray = np.array([currentState])
 done = False
 score = 0
 while not done:
     env.render()
-    action = np.argmax(model.predict(currentState)[0])
-    currentStateArray, reward, done, info = env.step(action)
-    currentState = np.array([currentStateArray])
+    action = np.argmax(model.predict(currentStateArray)[0])
+    currentState, reward, done, info = env.step(action)
+    currentStateArray = np.array([currentState])
     time.sleep(0.01)
     score += 1
 

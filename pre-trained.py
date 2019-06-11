@@ -10,15 +10,15 @@ print("\nPlaying Game...")
 env = gym.make('CartPole-v1')
 time.sleep(1)
 
-currentStateArray = env.reset()
-currentState = np.array([currentStateArray])
+currentState = env.reset()
+currentStateArray = np.array([currentState])
 done = False
 T = 0
 while not done:
     env.render()
-    action = np.argmax(model.predict(currentState)[0])
-    currentStateArray, reward, done, info = env.step(action)
-    currentState = np.array([currentStateArray])
+    action = np.argmax(model.predict(currentStateArray)[0])
+    currentState, reward, done, info = env.step(action)
+    currentStateArray = np.array([currentState])
     time.sleep(0.01)
     T += 1
 
