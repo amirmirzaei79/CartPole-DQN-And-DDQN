@@ -31,8 +31,6 @@ for episode in range(episodeLimit):
     done = False
     score = 0
     while not done:
-        # env.render()
-
         if np.random.rand() <= epsilon:
             action = env.action_space.sample()
         else:
@@ -47,7 +45,6 @@ for episode in range(episodeLimit):
 
         targetLabel = model.predict(currentStateArray)[0]
         targetLabel[action] = target
-        model.fit(currentStateArray, targetLabel.reshape(1, 2), epochs=1, verbose=0)
         memory.append([currentStateArray, action, reward, done, newStateArray])
         currentStateArray = newStateArray
         score += 1
@@ -57,7 +54,7 @@ for episode in range(episodeLimit):
     if episode < exploreLimit:
         epsilon = (1 - epsilonMin) * (1 - (episode / exploreLimit)) + epsilonMin
     else:
-        epsilon = 0
+        epsilon = epsilonMin
 
     if len(memory) > memory_limit:
         del memory[0:memory_limit // 5]
