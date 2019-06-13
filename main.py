@@ -43,8 +43,6 @@ for episode in range(episodeLimit):
         else:
             target = reward
 
-        targetLabel = model.predict(currentStateArray)[0]
-        targetLabel[action] = target
         memory.append([currentStateArray, action, reward, done, newStateArray])
         currentStateArray = newStateArray
         score += 1
