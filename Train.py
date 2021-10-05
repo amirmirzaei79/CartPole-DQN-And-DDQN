@@ -1,153 +1,179 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
 from torch.utils.data import TensorDataset, DataLoader
+from Model import Model
 import gym
 from collections import deque
 import random
-from os import path
-import numpy as np
 
+# Parameters
 use_cuda = True
-device = torch.device("cuda" if use_cuda and torch.cuda.is_available() else "cpu")
+episode_limit = 100
+target_update_delay = 2  # update target net every target_update_delay episodes
+test_delay = 10
+learning_rate = 1e-4
+epsilon = 1  # initial epsilon
+min_epsilon = 0.1
+epsilon_decay = 0.9 / 2.5e3
+gamma = 0.99
+memory_len = 10000
 
 env = gym.make('CartPole-v1')
+n_features = len(env.observation_space.high)
+n_actions = env.action_space.n
 
-outFile = open("log.txt", "w")
-
-MEMORY_LEN = 10000
-BATCH_SIZE = 512
-
-# Discount Factor
-GAMMA = 0.995
-
-epsilon = 1
-EPSILON_DECAY = 0.999
-MIN_EPSILON = 0.05
-
-EPISODE_LIMIT = 2000
+memory = deque(maxlen=memory_len)
+# each memory entry is in form: (state, action, env_reward, next_state)
+device = torch.device("cuda" if use_cuda and torch.cuda.is_available() else "cpu")
+criterion = nn.MSELoss()
+policy_net = Model(n_features, n_actions).to(device)
+target_net = Model(n_features, n_actions).to(device)
+target_net.load_state_dict(policy_net.state_dict())
+target_net.eval()
 
 
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.fc1 = nn.Linear(len(env.observation_space.high), 32)
-        self.fc2 = nn.Linear(32, 32)
-        self.fc3 = nn.Linear(32, env.action_space.n)
+def get_states_tensor(sample, states_idx):
+    sample_len = len(sample)
+    states_tensor = torch.empty((sample_len, n_features), dtype=torch.float32, requires_grad=False)
 
-    def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+    features_range = range(n_features)
+    for i in range(sample_len):
+        for j in features_range:
+            states_tensor[i, j] = sample[i][states_idx][j]
+
+    return states_tensor
 
 
-memory = deque(maxlen=MEMORY_LEN)
-model = Net().to(device)
+def normalize_state(state):
+    state[0] /= 2.5
+    state[1] /= 2.5
+    state[2] /= 0.3
+    state[3] /= 2.5
 
 
-def get_action(state: torch.Tensor):
-    if random.random() > epsilon:
-        with torch.no_grad():
-            return torch.argmax(model(state.to(device))).item()
+def state_reward(state, env_reward):
+    return env_reward - (abs(state[0]) + abs(state[2])) / 2.5
+
+
+def get_action(state, e=min_epsilon):
+    if random.random() < e:
+        # explore
+        action = random.randrange(0, n_actions)
     else:
-        return np.random.randint(env.action_space.n)
+        state = torch.tensor(state, dtype=torch.float32, device=device)
+        action = policy_net(state).argmax().item()
+
+    return action
 
 
-def normalize(st):
-    new_st = [st[0] / 5, st[1] / 5, st[2] / 24, st[3] / 24]
-    return new_st
+def fit(model, inputs, labels):
+    inputs = inputs.to(device)
+    labels = labels.to(device)
+    train_ds = TensorDataset(inputs, labels)
+    train_dl = DataLoader(train_ds, batch_size=5)
+
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=learning_rate)
+    model.train()
+    total_loss = 0.0
+
+    for x, y in train_dl:
+        out = model(x)
+        loss = criterion(out, y)
+        total_loss += loss.item()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    model.eval()
+
+    return total_loss / len(inputs)
 
 
-def fit(dataloader: DataLoader, epochs: int = 1):
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    criterion = nn.MSELoss()
-    for epoch in range(epochs):
-        for x, y in dataloader:
-            x = x.to(device)
-            y = y.to(device)
+def optimize_model(train_batch_size=100):
+    train_batch_size = min(train_batch_size, len(memory))
+    train_sample = random.sample(memory, train_batch_size)
 
-            output = model(x)
-            loss = criterion(output, y)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+    state = get_states_tensor(train_sample, 0)
+    next_state = get_states_tensor(train_sample, 3)
+
+    q_estimates = policy_net(state.to(device)).detach()
+    next_state_q_estimates = target_net(next_state.to(device)).detach()
+
+    for i in range(len(train_sample)):
+        q_estimates[i][train_sample[i][1]] = (state_reward(next_state[i], train_sample[i][2]) +
+                                              gamma * next_state_q_estimates[i].max())
+
+    fit(policy_net, state, q_estimates)
 
 
-def train():
-    batch = random.sample(memory, min(len(memory), BATCH_SIZE))
+def train_one_episode():
+    global epsilon
+    current_state = env.reset()
+    normalize_state(current_state)
+    done = False
+    score = 0
+    reward = 0
+    while not done:
+        action = get_action(current_state, epsilon)
+        next_state, env_reward, done, _ = env.step(action)
+        normalize_state(next_state)
+        memory.append((current_state, action, env_reward, next_state))
+        current_state = next_state
+        score += env_reward
+        reward += state_reward(next_state, env_reward)
 
-    x = []
-    y = []
-    for currentState, action, reward, nextState, done in batch:
-        if not done:
-            target = reward + GAMMA * torch.max(model(nextState.to(device))).detach()
-        else:
-            target = reward
+        optimize_model(100)
 
-        q = model(currentState.to(device)).detach()
-        q[0][action] = target
+        epsilon -= epsilon_decay
 
-        x.append(currentState)
-        y.append(q)
-
-    x = torch.cat(x, dim=0)
-    y = torch.cat(y, dim=0)
-
-    dataset = TensorDataset(x, y)
-    dataloader = DataLoader(dataset, batch_size=32)
-    fit(dataloader, 1)
+    return score, reward
 
 
 def test():
     state = env.reset()
-    current_state = torch.reshape(torch.tensor(normalize(state)), (1, len(env.observation_space.high))).to(device)
+    normalize_state(state)
     done = False
-    t = 0
+    score = 0
+    reward = 0
     while not done:
-        action = torch.argmax(model(current_state.to(device))).item()
-        state, reward, done, info = env.step(action)
-        current_state = torch.reshape(torch.tensor(normalize(state)), (1, len(env.observation_space.high)))
-        t += 1
-    return t
+        action = get_action(state)
+        state, env_reward, done, _ = env.step(action)
+        normalize_state(state)
+        score += env_reward
+        reward += state_reward(state, env_reward)
+
+    return score, reward
 
 
 def main():
-    global epsilon
+    best_test_reward = 0
 
-    if path.exists('cartpole.pth'):
-        model.load_state_dict(torch.load('cartpole.pth'))
+    for i in range(episode_limit):
+        score, reward = train_one_episode()
 
-    max_score = 0
-    for episode in range(EPISODE_LIMIT):
-        state = env.reset()
-        score = 0
-        done = False
+        print(f'Episode {i + 1}: score: {score} - reward: {reward}')
 
-        current_state = torch.tensor(normalize(state)).reshape(-1, len(env.observation_space.high))
-        while not done:
-            action = get_action(current_state)
-            state, reward, done, _ = env.step(action)
-            next_state = torch.tensor(normalize(state)).reshape(-1, len(env.observation_space.high))
+        if i % target_update_delay == 0:
+            target_net.load_state_dict(policy_net.state_dict())
+            target_net.eval()
 
-            if score < 499:
-                memory.append((current_state, action, reward, next_state, done))
+        if (i + 1) % test_delay == 0:
+            test_score, test_reward = test()
+            print(f'Test Episode {i + 1}: test score: {test_score} - test reward: {test_reward}')
+            if test_reward > best_test_reward:
+                print('New best test reward. Saving model')
+                best_test_reward = test_reward
+                torch.save(policy_net.state_dict(), 'policy_net.pth')
 
-            score += reward
+    if episode_limit % test_delay != 0:
+        test_score, test_reward = test()
+        print(f'Test Episode {episode_limit}: test score: {test_score} - test reward: {test_reward}')
+        if test_reward > best_test_reward:
+            print('New best test reward. Saving model')
+            best_test_reward = test_reward
+            torch.save(policy_net.state_dict(), 'policy_net.pth')
 
-            train()
-
-            current_state = next_state
-
-            epsilon = max(EPSILON_DECAY * epsilon, MIN_EPSILON)
-        else:
-            test_score = test()
-            if test_score >= max_score:
-                max_score = test_score
-                torch.save(model.state_dict(), 'cartpole.pth')
-
-            print("episode: " + str(episode + 1) + " -> " + str(score) + " - " + str(test_score))
-            outFile.write("episode: " + str(episode + 1) + " -> " + str(score) + " - " + str(test_score) + "\n")
+    print(f'best test reward: {best_test_reward}')
 
 
 if __name__ == '__main__':
