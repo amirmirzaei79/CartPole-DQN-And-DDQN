@@ -39,7 +39,7 @@ def get_states_tensor(sample, states_idx):
     features_range = range(n_features)
     for i in range(sample_len):
         for j in features_range:
-            states_tensor[i, j] = sample[i][states_idx][j]
+            states_tensor[i, j] = sample[i][states_idx][j].item()
 
     return states_tensor
 
