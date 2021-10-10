@@ -1,7 +1,11 @@
-# DQN Algorithm for Open-AI gym Cart pole
-Implementation for DQN algorithm proposed in 
+# DQN & DDQN Algorithms for Open-AI gym Cart pole
+Implementation for DQN (Deep Q Network) and DDQN (Double Deep Q Networks) algorithms proposed in 
 
 "Mnih, V., Kavukcuoglu, K., Silver, D. *et al.* Human-level control through deep reinforcement learning.                    *Nature* **518,** 529–533 (2015). https://doi.org/10.1038/nature14236"
+
+and
+
+"Hado van Hasselt, Arthur Guez, David Silver. Deep Reinforcement Learning with Double Q-learning https://arxiv.org/abs/1509.06461"
 
 on Open-AI gym Cart Pole environment.
 
