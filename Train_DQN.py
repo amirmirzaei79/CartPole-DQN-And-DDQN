@@ -48,7 +48,7 @@ def normalize_state(state):
     state[0] /= 2.5
     state[1] /= 2.5
     state[2] /= 0.3
-    state[3] /= 2.5
+    state[3] /= 0.3
 
 
 def state_reward(state, env_reward):
