@@ -1,7 +1,7 @@
 import torch
 import gym
 import time
-from Train import normalize_state, state_reward
+from Train_DQN import normalize_state, state_reward
 from Model import Model
 env = gym.make('CartPole-v1')
 
