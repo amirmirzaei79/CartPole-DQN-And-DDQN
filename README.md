@@ -9,6 +9,6 @@ and
 
 on Open-AI gym Cart Pole environment.
 
-Also a fraction of pole's base distance to center and pole's angle from center were added as a cost in order to encourage model to keep the pole still and in center. Adding this short term cost should help agent to learn avoiding distance from center and increasing angel (which is the final goal) faster. Although removing these costs won't make it impossible for agent to learn, just makes it harder.
+Also a fraction of pole's base distance to center and pole's angle from center were added as a cost in order to encourage model to keep the pole still and in center. Adding this short term cost should help agent to learn avoiding distance from center and increasing angle (which is the final goal) faster. Although removing these costs won't make it impossible for agent to learn, just makes it harder; This means training takes longer and agent's behaviour becomes less predictable and less stable.
 
 Both methods of training create and save policy model in the same manner, therefore model parameters created by either one of training methods can be used for the Run file.
